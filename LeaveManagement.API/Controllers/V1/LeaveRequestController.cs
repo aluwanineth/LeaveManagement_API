@@ -104,4 +104,41 @@ public class LeaveRequestController(IMediator mediator, IAuthenticatedUserServic
         var result = await Mediator.Send(command);
         return Ok(result);
     }
+
+    [HttpDelete("{id}/cancel")]
+    public async Task<IActionResult> CancelLeaveRequest(int id)
+    {
+        var employeeId = authenticatedUserService.EmployeeId;
+
+        if (!employeeId.HasValue)
+        {
+            return BadRequest(new Response<string>("Employee ID not found"));
+        }
+
+        var command = new CancelLeaveRequestCommand
+        {
+            LeaveRequestId = id,
+            EmployeeId = employeeId.Value
+        };
+
+        var result = await Mediator.Send(command);
+
+        if (!result.Succeeded)
+        {
+            if (result.Message.Contains("not found"))
+            {
+                return NotFound(result);
+            }
+            if (result.Message.Contains("can only cancel your own"))
+            {
+                return Forbid();
+            }
+            if (result.Message.Contains("Cannot cancel"))
+            {
+                return BadRequest(result);
+            }
+        }
+
+        return Ok(result);
+    }
 }

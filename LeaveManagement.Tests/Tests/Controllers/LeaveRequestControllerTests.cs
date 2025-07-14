@@ -221,4 +221,64 @@ public class LeaveRequestControllerTests
         var response = badRequestResult.Value as Response<string>;
         Assert.That(response.Message, Is.EqualTo("Employee ID not found"));
     }
+
+    [Test]
+    public async Task CancelLeaveRequest_ValidRequest_ReturnsOkResult()
+    {
+        // Arrange
+        var leaveRequestId = 1;
+        _authenticatedUserService.EmployeeId.Returns(1);
+        var expectedResponse = new Response<string>("Leave request cancelled successfully");
+        _mediator.Send(Arg.Any<CancelLeaveRequestCommand>()).Returns(expectedResponse);
+
+        // Act
+        var result = await _controller.CancelLeaveRequest(leaveRequestId);
+
+        // Assert
+        Assert.That(result, Is.InstanceOf<OkObjectResult>());
+        await _mediator.Received(1).Send(Arg.Any<CancelLeaveRequestCommand>());
+    }
+
+    [Test]
+    public async Task CancelLeaveRequest_UserHasNoEmployeeId_ReturnsBadRequest()
+    {
+        // Arrange
+        _authenticatedUserService.EmployeeId.Returns((int?)null);
+
+        // Act
+        var result = await _controller.CancelLeaveRequest(1);
+
+        // Assert
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+    }
+
+    [Test]
+    public async Task CancelLeaveRequest_NotFound_ReturnsNotFound()
+    {
+        // Arrange
+        _authenticatedUserService.EmployeeId.Returns(1);
+        var errorResponse = new Response<string>("Leave request not found");
+        _mediator.Send(Arg.Any<CancelLeaveRequestCommand>()).Returns(errorResponse);
+
+        // Act
+        var result = await _controller.CancelLeaveRequest(999);
+
+        // Assert
+        Assert.That(result, Is.InstanceOf<NotFoundObjectResult>());
+    }
+
+    [Test]
+    public async Task CancelLeaveRequest_NotOwnRequest_ReturnsForbid()
+    {
+        // Arrange
+        _authenticatedUserService.EmployeeId.Returns(1);
+        var errorResponse = new Response<string>("You can only cancel your own leave requests");
+        _mediator.Send(Arg.Any<CancelLeaveRequestCommand>()).Returns(errorResponse);
+
+        // Act
+        var result = await _controller.CancelLeaveRequest(1);
+
+        // Assert
+        Assert.That(result, Is.InstanceOf<ForbidResult>());
+    }
 }
