@@ -22,11 +22,12 @@ LeaveManagement/
 
 ### Business Features
 - ✅ **Employee Management** - CRUD operations for employees
-- ✅ **Leave Request System** - Create, view, edit, and retract leave requests
+- ✅ **Leave Request System** - Create, view, edit, and cancel leave requests
+- ✅ **Self-Service Cancellation** - Employees can cancel their own pending requests
+- ✅ **Overlap Prevention** - Prevents duplicate/overlapping leave requests
 - ✅ **Approval Workflow** - Manager-based approval system
 - ✅ **Role-Based Access** - CEO, Manager, TeamLead, Employee roles
-- ✅ **Business Days Calculation** - Automatic business day calculations excluding weekends and public holidays
-- ✅ **Public Holiday Management** - South African public holiday support
+- ✅ **Business Days Validation** - South African public holidays and business day calculations
 - ✅ **Audit Trail** - Track record updates with user and timestamp
 
 ### Technical Features
@@ -36,7 +37,7 @@ LeaveManagement/
 - ✅ **JWT Authentication** - Secure token-based authentication
 - ✅ **Entity Framework Core** - Code-first with SQL Server
 - ✅ **AutoMapper** - Object-to-object mapping
-- ✅ **FluentValidation** - Request validation
+- ✅ **FluentValidation** - Request validation with overlap checking
 - ✅ **Swagger Documentation** - Interactive API documentation
 - ✅ **Unit Testing** - Comprehensive test coverage
 
@@ -160,7 +161,7 @@ The API will be available at:
 | **CEO** | Full access to all operations |
 | **Manager** | Manage employees, approve subordinate leave requests |
 | **TeamLead** | Approve team member leave requests |
-| **Employee** | Create and view own leave requests |
+| **Employee** | Create, view, and cancel own leave requests |
 
 ### API Security
 - **JWT Bearer Authentication** - All endpoints except auth require valid tokens
@@ -170,69 +171,74 @@ The API will be available at:
 ## 📡 API Endpoints
 
 ### Authentication Endpoints
-```https
-POST /api/v1/account/authenticate      # Login user
-POST /api/v1/account/register          # Register new user
+```http
+POST /api/account/register          # Register new user
+POST /api/account/authenticate      # Login user
 ```
 
 ### Employee Endpoints
-```https
-GET    /api/v1/employee                # Get all employees (CEO/Manager only)
-POST   /api/v1/employee                # Create employee (CEO/Manager only)
+```http
+GET    /api/v1/employee            # Get all employees (CEO/Manager only)
+POST   /api/v1/employee            # Create employee (CEO/Manager only)
 ```
 
 ### Leave Request Endpoints
-```https
-POST   /api/v1/leaverequest                     # Create leave request
-GET    /api/v1/leaverequest/employee/{id}       # Get employee's leave requests
-GET    /api/v1/leaverequest/pending             # Get pending approvals (Managers)
-GET    /api/v1/leaverequest/approvals           # Get all approvals for manager (Managers)
-PUT    /api/v1/leaverequest/approve             # Approve leave request (Managers)
-PUT    /api/v1/leaverequest/reject              # Reject leave request (Managers)
+```http
+GET    /api/v1/leaverequest/employee/{id}     # Get employee's leave requests
+POST   /api/v1/leaverequest                   # Create leave request
+PUT    /api/v1/leaverequest/approve           # Approve/reject leave request (Managers)
+PUT    /api/v1/leaverequest/reject            # Reject leave request (Managers)
+DELETE /api/v1/leaverequest/{id}/cancel       # Cancel own pending leave request (Employees)
+GET    /api/v1/leaverequest/pending           # Get pending approvals (Managers)
+GET    /api/v1/leaverequest/approvals         # Get approval history (Managers)
 ```
 
 ### Business Days Endpoints
-```https
-GET    /api/v1/businessdays/public-holidays/{year}        # Get public holidays for year
-GET    /api/v1/businessdays/is-business-day/{date}        # Check if date is business day
-POST   /api/v1/businessdays/validate-date-range          # Validate date range
-POST   /api/v1/businessdays/business-days-count          # Calculate business days count
-POST   /api/v1/businessdays/non-business-days            # Get non-business days in range
-GET    /api/v1/businessdays/next-business-day/{date}     # Get next business day
+```http
+GET    /api/v1/businessdays/public-holidays/{year}     # Get public holidays for year
+GET    /api/v1/businessdays/is-business-day/{date}     # Check if date is business day
+POST   /api/v1/businessdays/validate-date-range        # Validate date range for leave
+POST   /api/v1/businessdays/business-days-count        # Count business days in range
+POST   /api/v1/businessdays/non-business-days          # Get non-business days in range
+GET    /api/v1/businessdays/next-business-day/{date}   # Get next business day
 GET    /api/v1/businessdays/previous-business-day/{date} # Get previous business day
 ```
+
+## 🔧 Key Business Rules
+
+### Leave Request Creation
+- **Overlap Prevention**: System prevents creating requests with overlapping dates
+- **Future Dates Only**: Leave requests cannot be created for past dates
+- **Business Day Validation**: Optional validation for business days
+- **Maximum Comments**: Comments limited to 500 characters
+
+### Leave Request Cancellation
+- **Self-Service**: Employees can cancel their own pending requests
+- **Pending Only**: Only requests with "Pending" status can be cancelled
+- **No Manager Approval**: Cancellation is immediate without manager intervention
+- **Audit Trail**: Cancelled requests are marked as "Cancelled" (not deleted)
+- **Status Update**: Request status changes to "Cancelled" with automatic comment
+
+### Leave Request Approval/Rejection
+- **Manager Authorization**: Only managers can approve/reject subordinate requests
+- **Pending Only**: Only pending requests can be approved/rejected
+- **Comments Required**: Approval/rejection comments are mandatory
+- **Status Tracking**: Full audit trail of approval decisions
+
+### Business Days (South African Context)
+- **Public Holidays**: Automatic handling of South African public holidays
+- **Weekend Exclusion**: Saturdays and Sundays are non-business days
+- **Holiday Observation**: Sunday holidays moved to Monday
+- **Date Range Validation**: Comprehensive business day calculations
 
 ### Request/Response Examples
 
 #### Authentication Request
 ```json
-POST /api/v1/account/authenticate
+POST /api/account/authenticate
 {
   "email": "lindajenkins@acme.com",
   "password": "Password123!"
-}
-```
-
-#### Authentication Response
-```json
-{
-  "id": "12345",
-  "email": "lindajenkins@acme.com",
-  "fullName": "Linda Jenkins",
-  "employeeId": 1,
-  "roles": ["Manager"],
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "tokenExpires": "2025-07-15T14:30:00Z"
-}
-```
-
-#### User Registration Request
-```json
-POST /api/v1/account/register
-{
-  "email": "employee@acme.com",
-  "password": "Password123!",
-  "confirmPassword": "Password123!"
 }
 ```
 
@@ -241,60 +247,17 @@ POST /api/v1/account/register
 POST /api/v1/leaverequest
 {
   "employeeId": 1,
-  "startDate": "2025-08-01",
-  "endDate": "2025-08-05",
-  "leaveType": "Annual",
+  "startDate": "2025-08-15",
+  "endDate": "2025-08-19",
+  "leaveType": 1,
   "comments": "Family vacation"
 }
 ```
 
-#### Create Employee Request
-```json
-POST /api/v1/employee
-{
-  "employeeNumber": "EMP001",
-  "fullName": "John Doe",
-  "email": "john.doe@acme.com",
-  "cellphoneNumber": "+27123456789",
-  "employeeType": "Employee",
-  "managerId": 2
-}
-```
-
-#### Approve Leave Request
-```json
-PUT /api/v1/leaverequest/approve
-{
-  "leaveRequestId": 1,
-  "approvalComments": "Approved for vacation"
-}
-```
-
-#### Reject Leave Request
-```json
-PUT /api/v1/leaverequest/reject
-{
-  "leaveRequestId": 1,
-  "rejectionComments": "Insufficient leave balance"
-}
-```
-
-#### Date Range Validation Request
-```json
-POST /api/v1/businessdays/validate-date-range
-{
-  "startDate": "2025-08-01",
-  "endDate": "2025-08-05"
-}
-```
-
-#### Business Days Count Request
-```json
-POST /api/v1/businessdays/business-days-count
-{
-  "startDate": "2025-08-01",
-  "endDate": "2025-08-05"
-}
+#### Cancel Leave Request
+```http
+DELETE /api/v1/leaverequest/19/cancel
+Authorization: Bearer {jwt-token}
 ```
 
 ## 🧪 Testing
@@ -307,15 +270,22 @@ dotnet test
 # Run tests with coverage
 dotnet test --collect:"XPlat Code Coverage"
 
-# Run specific test project
-dotnet test LeaveManagement.Tests
 ```
 
-### Test Structure
+### Test Coverage Areas
 - **Controller Tests** - API endpoint testing
-- **Handler Tests** - Business logic testing  
+- **Handler Tests** - Business logic testing with CQRS commands/queries
 - **Repository Tests** - Data access testing
-- **Validator Tests** - Input validation testing
+- **Validator Tests** - Input validation and overlap detection testing
+- **Service Tests** - Business day calculations and authorization testing
+- **Integration Tests** - End-to-end workflow testing
+
+### Test Categories
+- **Unit Tests** - Individual component testing
+- **Performance Tests** - Large dataset and concurrent operation testing
+- **Edge Case Tests** - Boundary conditions and error scenarios
+- **Security Tests** - Authorization and data access validation
+- **Business Logic Tests** - Complex workflow and rule validation
 
 ## 🔧 Configuration
 
@@ -339,25 +309,3 @@ dotnet test LeaveManagement.Tests
   }
 }
 ```
-
-## 🎯 Business Rules
-
-### Leave Request Rules
-- Employees can only create leave requests for future dates
-- Leave requests must be approved by the employee's direct manager
-- CEO and Managers can approve leave requests for their subordinates
-- TeamLeads can approve leave requests for their team members
-- Employees can only view their own leave requests
-- Leave requests can be cancelled/retracted before approval
-
-### Business Days Calculation
-- Weekends (Saturday, Sunday) are excluded from business days
-- South African public holidays are automatically excluded
-- Leave duration is calculated in business days only
-- System validates that leave requests don't include past dates
-
-### Role Hierarchy
-- **CEO**: Can manage all employees and approve all leave requests
-- **Manager**: Can create employees and approve leave requests for subordinates
-- **TeamLead**: Can approve leave requests for team members
-- **Employee**: Can create and view own leave requests only
