@@ -9,4 +9,6 @@ public interface ILeaveRequestRepositoryAsync : IGenericRepositoryAsync<LeaveReq
     Task<IReadOnlyList<LeaveRequest>> GetLeaveRequestsForApprovalAsync(int approverId);
     Task<IReadOnlyList<LeaveRequest>> GetPendingApprovalsAsync(int approverId);
     Task<LeaveRequest?> GetLeaveRequestWithDetailsAsync(int leaveRequestId);
+    Task<bool> HasOverlappingPendingLeaveRequestsAsync(int employeeId, DateTime startDate, DateTime endDate, int? excludeLeaveRequestId = null);
+    Task<IReadOnlyList<LeaveRequest>> GetOverlappingLeaveRequestsAsync(int employeeId, DateTime startDate, DateTime endDate, int? excludeLeaveRequestId = null);
 }

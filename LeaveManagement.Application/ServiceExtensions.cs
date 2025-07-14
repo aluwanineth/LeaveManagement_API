@@ -1,5 +1,7 @@
 ﻿using FluentValidation;
 using LeaveManagement.Application.Behaviors;
+using LeaveManagement.Application.DTOs.LeaveRequest;
+using LeaveManagement.Application.Features.LeaveRequest.Validators;
 using LeaveManagement.Application.Interfaces.Services;
 using LeaveManagement.Application.Mappings;
 using LeaveManagement.Application.Services;
@@ -26,6 +28,7 @@ public static class ServiceExtensions
             );
 
         services.AddScoped<IBusinessDayService, BusinessDayService>();
+        services.AddScoped<IValidator<LeaveRequestRequest>, LeaveRequestRequestValidator>();
 
     }
 }

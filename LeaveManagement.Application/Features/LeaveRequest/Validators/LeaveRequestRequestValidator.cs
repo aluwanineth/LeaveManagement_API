@@ -1,12 +1,17 @@
 ﻿using FluentValidation;
 using LeaveManagement.Application.DTOs.LeaveRequest;
+using LeaveManagement.Application.Interfaces.Repositories;
 
 namespace LeaveManagement.Application.Features.LeaveRequest.Validators;
 
 public class LeaveRequestRequestValidator : AbstractValidator<LeaveRequestRequest>
 {
-    public LeaveRequestRequestValidator()
+    private readonly ILeaveRequestRepositoryAsync _leaveRequestRepository;
+
+    public LeaveRequestRequestValidator(ILeaveRequestRepositoryAsync leaveRequestRepository)
     {
+        _leaveRequestRepository = leaveRequestRepository;
+
         RuleFor(x => x.EmployeeId)
             .GreaterThan(0).WithMessage("Employee ID must be greater than 0");
 
@@ -23,5 +28,17 @@ public class LeaveRequestRequestValidator : AbstractValidator<LeaveRequestReques
 
         RuleFor(x => x.Comments)
             .MaximumLength(500).WithMessage("Comments cannot exceed 500 characters");
+
+        RuleFor(x => x)
+            .MustAsync(async (request, cancellation) =>
+            {
+                return !await _leaveRequestRepository.HasOverlappingPendingLeaveRequestsAsync(
+                    request.EmployeeId,
+                    request.StartDate,
+                    request.EndDate,
+                    null);
+            })
+            .WithMessage("You already have a pending leave request that overlaps with these dates.")
+            .WithName("DateRange");
     }
 }

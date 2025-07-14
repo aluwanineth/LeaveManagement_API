@@ -113,4 +113,39 @@ public class LeaveRequestRepositoryAsync(ApplicationDbContext dbContext) : Gener
         return await dbContext.LeaveRequests
             .CountAsync(lr => subordinateIds.Contains(lr.EmployeeId) && lr.Status == LeaveStatus.Pending);
     }
+
+    public async Task<bool> HasOverlappingPendingLeaveRequestsAsync(int employeeId, DateTime startDate, DateTime endDate, int? excludeLeaveRequestId = null)
+    {
+        var query = dbContext.LeaveRequests
+            .Where(lr => lr.EmployeeId == employeeId &&
+                       lr.Status == LeaveStatus.Pending &&
+                       // Check for date overlap: (StartA <= EndB) and (EndA >= StartB)
+                       lr.StartDate <= endDate && lr.EndDate >= startDate);
+
+        // Exclude specific leave request if provided (useful for updates)
+        if (excludeLeaveRequestId.HasValue)
+        {
+            query = query.Where(lr => lr.LeaveRequestId != excludeLeaveRequestId.Value);
+        }
+
+        return await query.AnyAsync();
+    }
+    public async Task<IReadOnlyList<LeaveRequest>> GetOverlappingLeaveRequestsAsync(int employeeId, DateTime startDate, DateTime endDate, int? excludeLeaveRequestId = null)
+    {
+        var query = dbContext.LeaveRequests
+            .Include(lr => lr.Employee)
+            .Where(lr => lr.EmployeeId == employeeId &&
+                       lr.Status == LeaveStatus.Pending &&
+                       // Check for date overlap
+                       lr.StartDate <= endDate && lr.EndDate >= startDate);
+
+        if (excludeLeaveRequestId.HasValue)
+        {
+            query = query.Where(lr => lr.LeaveRequestId != excludeLeaveRequestId.Value);
+        }
+
+        return await query
+            .OrderBy(lr => lr.StartDate)
+            .ToListAsync();
+    }
 }
