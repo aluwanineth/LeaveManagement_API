@@ -1,3 +1,4 @@
+
 # Leave Management System
 
 A comprehensive leave management system built with **Clean Architecture** using .NET 9, Entity Framework Core, and JWT authentication. The system enables employees to request leave and managers to approve/reject requests based on organizational hierarchy.
@@ -24,6 +25,8 @@ LeaveManagement/
 - ✅ **Leave Request System** - Create, view, edit, and retract leave requests
 - ✅ **Approval Workflow** - Manager-based approval system
 - ✅ **Role-Based Access** - CEO, Manager, TeamLead, Employee roles
+- ✅ **Business Days Calculation** - Automatic business day calculations excluding weekends and public holidays
+- ✅ **Public Holiday Management** - South African public holiday support
 - ✅ **Audit Trail** - Track record updates with user and timestamp
 
 ### Technical Features
@@ -66,7 +69,7 @@ LeaveManagement/
 ### 1. Clone the Repository
 ```bash
 git clone https://github.com/aluwanineth/LeaveManagement_API.git
-cd leave-management-system
+cd LeaveManagement_API
 ```
 
 ### 2. Restore Dependencies
@@ -167,35 +170,130 @@ The API will be available at:
 ## 📡 API Endpoints
 
 ### Authentication Endpoints
-```http
-POST /api/account/register          # Register new user
-POST /api/account/authenticate      # Login user
+```https
+POST /api/v1/account/authenticate      # Login user
+POST /api/v1/account/register          # Register new user
 ```
 
 ### Employee Endpoints
-```http
-GET    /api/v1/employee            # Get all employees (CEO/Manager only)
-POST   /api/v1/employee            # Create employee (CEO/Manager only)
+```https
+GET    /api/v1/employee                # Get all employees (CEO/Manager only)
+POST   /api/v1/employee                # Create employee (CEO/Manager only)
 ```
 
 ### Leave Request Endpoints
-```http
-GET    /api/v1/leaverequest/employee/{id}     # Get employee's leave requests
-POST   /api/v1/leaverequest                   # Create leave request
-PUT    /api/v1/leaverequest/{id}              # Update leave request
-DELETE /api/v1/leaverequest/{id}              # Cancel leave request
-PUT    /api/v1/leaverequest/approve           # Approve/reject leave request (Managers)
-GET    /api/v1/leaverequest/pending           # Get pending approvals (Managers)
+```https
+POST   /api/v1/leaverequest                     # Create leave request
+GET    /api/v1/leaverequest/employee/{id}       # Get employee's leave requests
+GET    /api/v1/leaverequest/pending             # Get pending approvals (Managers)
+GET    /api/v1/leaverequest/approvals           # Get all approvals for manager (Managers)
+PUT    /api/v1/leaverequest/approve             # Approve leave request (Managers)
+PUT    /api/v1/leaverequest/reject              # Reject leave request (Managers)
+```
+
+### Business Days Endpoints
+```https
+GET    /api/v1/businessdays/public-holidays/{year}        # Get public holidays for year
+GET    /api/v1/businessdays/is-business-day/{date}        # Check if date is business day
+POST   /api/v1/businessdays/validate-date-range          # Validate date range
+POST   /api/v1/businessdays/business-days-count          # Calculate business days count
+POST   /api/v1/businessdays/non-business-days            # Get non-business days in range
+GET    /api/v1/businessdays/next-business-day/{date}     # Get next business day
+GET    /api/v1/businessdays/previous-business-day/{date} # Get previous business day
 ```
 
 ### Request/Response Examples
 
 #### Authentication Request
 ```json
-POST /api/account/authenticate
+POST /api/v1/account/authenticate
 {
   "email": "lindajenkins@acme.com",
   "password": "Password123!"
+}
+```
+
+#### Authentication Response
+```json
+{
+  "id": "12345",
+  "email": "lindajenkins@acme.com",
+  "fullName": "Linda Jenkins",
+  "employeeId": 1,
+  "roles": ["Manager"],
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "tokenExpires": "2025-07-15T14:30:00Z"
+}
+```
+
+#### User Registration Request
+```json
+POST /api/v1/account/register
+{
+  "email": "employee@acme.com",
+  "password": "Password123!",
+  "confirmPassword": "Password123!"
+}
+```
+
+#### Create Leave Request
+```json
+POST /api/v1/leaverequest
+{
+  "employeeId": 1,
+  "startDate": "2025-08-01",
+  "endDate": "2025-08-05",
+  "leaveType": "Annual",
+  "comments": "Family vacation"
+}
+```
+
+#### Create Employee Request
+```json
+POST /api/v1/employee
+{
+  "employeeNumber": "EMP001",
+  "fullName": "John Doe",
+  "email": "john.doe@acme.com",
+  "cellphoneNumber": "+27123456789",
+  "employeeType": "Employee",
+  "managerId": 2
+}
+```
+
+#### Approve Leave Request
+```json
+PUT /api/v1/leaverequest/approve
+{
+  "leaveRequestId": 1,
+  "approvalComments": "Approved for vacation"
+}
+```
+
+#### Reject Leave Request
+```json
+PUT /api/v1/leaverequest/reject
+{
+  "leaveRequestId": 1,
+  "rejectionComments": "Insufficient leave balance"
+}
+```
+
+#### Date Range Validation Request
+```json
+POST /api/v1/businessdays/validate-date-range
+{
+  "startDate": "2025-08-01",
+  "endDate": "2025-08-05"
+}
+```
+
+#### Business Days Count Request
+```json
+POST /api/v1/businessdays/business-days-count
+{
+  "startDate": "2025-08-01",
+  "endDate": "2025-08-05"
 }
 ```
 
@@ -221,7 +319,6 @@ dotnet test LeaveManagement.Tests
 
 ## 🔧 Configuration
 
-
 ### appsettings.json Structure
 ```json
 {
@@ -243,5 +340,24 @@ dotnet test LeaveManagement.Tests
 }
 ```
 
+## 🎯 Business Rules
 
+### Leave Request Rules
+- Employees can only create leave requests for future dates
+- Leave requests must be approved by the employee's direct manager
+- CEO and Managers can approve leave requests for their subordinates
+- TeamLeads can approve leave requests for their team members
+- Employees can only view their own leave requests
+- Leave requests can be cancelled/retracted before approval
 
+### Business Days Calculation
+- Weekends (Saturday, Sunday) are excluded from business days
+- South African public holidays are automatically excluded
+- Leave duration is calculated in business days only
+- System validates that leave requests don't include past dates
+
+### Role Hierarchy
+- **CEO**: Can manage all employees and approve all leave requests
+- **Manager**: Can create employees and approve leave requests for subordinates
+- **TeamLead**: Can approve leave requests for team members
+- **Employee**: Can create and view own leave requests only
